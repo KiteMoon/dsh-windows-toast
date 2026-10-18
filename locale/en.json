@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Toast notifications",
+    "description": "Windows toast notifications for DSH review events, with approve/reject on approval toasts and a per-event dismiss time."
+  }
+}

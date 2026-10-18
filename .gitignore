@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Test and packaging output
+*.tgz
+coverage/
+.nyc_output/
+
+# Local scratch: spool directories, staged toast XML, captured logs
+spool/
+*.uri
+*.xml
+!lib/**/*.xml
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

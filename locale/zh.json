@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Toast 通知",
+    "description": "为 DSH 的审核事件发送 Windows 通知，授权类通知可直接同意/拒绝，各类通知的消失时间可分别调整。"
+  }
+}

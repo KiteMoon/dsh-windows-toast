@@ -1,0 +1,14 @@
+# ============================================================================
+# dsh-windows-toast — DSH bundle patch
+# ============================================================================
+# Inserts this plugin's Host row into the current profile. The row `id` is the
+# settings namespace the Web settings panel reads, so it is deliberately a
+# stable literal and must stay in step with `SETTINGS_NS` in `client.js`.
+#
+# Install (do not hand-edit the profile):
+#   dsh plugin --profile <name> add <absolute path to this directory>
+# ============================================================================
+
+- insert:
+    - id: dsh-windows-toast
+      name: dsh-windows-toast

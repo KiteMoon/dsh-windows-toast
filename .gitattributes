@@ -1,0 +1,18 @@
+# Normalize to LF in the repository.
+#
+# This matters more than usual here: `assets/toast.ps1` and `assets/decision.vbs`
+# are executed by Windows script hosts on the user's machine, and a CRLF/LF mix
+# in a file edited on Windows and checked out on another platform is a needless
+# source of surprises. Normalizing once keeps every checkout byte-identical.
+* text=auto eol=lf
+
+# Binary assets must never be text-normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff2 binary
+
+# Generated from scripts/generate-market-index.mjs; keep it diffable but do not
+# treat it as hand-maintained prose.
+market.json linguist-generated=true

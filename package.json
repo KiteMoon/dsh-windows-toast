@@ -1,0 +1,71 @@
+{
+  "name": "dsh-windows-toast",
+  "version": "1.0.0",
+  "description": "Windows toast notifications for DeepSeek Harness review events, with approve/reject on approval toasts and a per-event dismiss time.",
+  "type": "module",
+  "icon": "./icon.svg",
+  "author": "KiteMoon",
+  "license": "MIT",
+  "homepage": "https://github.com/KiteMoon/dsh-windows-toast#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KiteMoon/dsh-windows-toast.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KiteMoon/dsh-windows-toast/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "locale",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/run-all.mjs",
+    "test:compat": "node test/compat.test.mjs",
+    "test:host": "node test/host.test.mjs",
+    "test:client": "node test/client.test.cjs",
+    "test:e2e": "node test/e2e.test.mjs",
+    "market": "node scripts/generate-market-index.mjs ."
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "windows",
+    "toast",
+    "notification",
+    "notifications",
+    "approval",
+    "winrt"
+  ]
+}

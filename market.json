@@ -1,0 +1,80 @@
+{
+  "format": 1,
+  "title": {
+    "en": "KiteMoon DSH plugins",
+    "zh": "KiteMoon DSH 插件"
+  },
+  "description": {
+    "en": "Third-party plugins for DeepSeek Harness by KiteMoon.",
+    "zh": "KiteMoon 的 DeepSeek Harness 第三方插件。"
+  },
+  "metadata": {
+    "categories": {
+      "notifications": {
+        "title": {
+          "en": "Notifications",
+          "zh": "通知"
+        }
+      }
+    },
+    "labels": {
+      "windows": {
+        "title": {
+          "en": "Windows",
+          "zh": "Windows"
+        }
+      },
+      "no-dependencies": {
+        "title": {
+          "en": "No dependencies",
+          "zh": "无依赖"
+        }
+      }
+    }
+  },
+  "plugins": [
+    {
+      "name": "dsh-windows-toast",
+      "title": {
+        "en": "Windows Toast Notifications",
+        "zh": "Windows Toast 通知"
+      },
+      "description": {
+        "en": "Toast notifications for review events. Approval toasts carry Approve and Reject buttons, and every event type has its own dismiss time.",
+        "zh": "为审核事件发送 Windows toast 通知。授权类通知自带「同意 / 拒绝」按钮，各类事件的消失时间可分别调整。"
+      },
+      "icon": "icon.svg",
+      "author": "KiteMoon",
+      "homepage": "https://github.com/KiteMoon/dsh-windows-toast",
+      "repository": {
+        "url": "https://github.com/KiteMoon/dsh-windows-toast"
+      },
+      "metadata": {
+        "category": "notifications",
+        "keywords": [
+          "toast",
+          "notification",
+          "approval",
+          "windows",
+          "winrt"
+        ],
+        "labels": [
+          "windows",
+          "no-dependencies"
+        ]
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1761000000,
+          "source": {
+            "type": "npm"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.2"
+          }
+        }
+      ]
+    }
+  ]
+}
