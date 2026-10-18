@@ -138,7 +138,7 @@ If no browser client is connected at all, the request would normally fail closed
 as `unavailable`; the toast stays live as the decision source instead, bounded so
 an ignored toast cannot hang a turn forever.
 
-Full details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), including why
+Full details are in [docs/ARCHITECTURE.md](https://github.com/KiteMoon/dsh-windows-toast/blob/main/docs/ARCHITECTURE.md), including why
 the decision key is never the tool call id — spoiler: a real `callId` contains
 `|`, and the Windows shell reads that as a pipe.
 
@@ -181,9 +181,9 @@ is still pointing at the removed `.cmd` handler. Restart DSH to re-register.
 
 | Document | Contents |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it fits into DSH: components, the approval race, data flow, failure modes |
-| [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | File-by-file internals and the constraints each one exists to satisfy |
-| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [docs/ARCHITECTURE.md](https://github.com/KiteMoon/dsh-windows-toast/blob/main/docs/ARCHITECTURE.md) | How it fits into DSH: components, the approval race, data flow, failure modes |
+| [docs/IMPLEMENTATION.md](https://github.com/KiteMoon/dsh-windows-toast/blob/main/docs/IMPLEMENTATION.md) | File-by-file internals and the constraints each one exists to satisfy |
+| [CHANGELOG.md](https://github.com/KiteMoon/dsh-windows-toast/blob/main/CHANGELOG.md) | Release history |
 
 ## Development
 
@@ -207,4 +207,4 @@ Center. It uses its own protocol and AUMID and cleans up after itself.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/KiteMoon/dsh-windows-toast/blob/main/LICENSE)
