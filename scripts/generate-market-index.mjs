@@ -52,6 +52,43 @@ function findSemver() {
  */
 const publishTimestamp = Number.parseInt(process.env.SOURCE_DATE_EPOCH ?? '', 10) || Math.floor(Date.now() / 1000)
 
+/** Read a git field from the manifest's repository URL, normalised to https. */
+function repositoryUrl() {
+  const raw = pkg.repository?.url ?? ''
+  return raw
+    .replace(/^git\+/u, '')
+    .replace(/\.git$/u, '')
+    .replace(/^git:\/\//u, 'https://')
+}
+
+/**
+ * Decide the version's `source`, and fail loudly rather than emit something
+ * uninstallable.
+ *
+ * A git source needs the exact 40-hex commit, which only the push knows, so it
+ * is supplied by the caller as `MARKET_COMMIT`. Falling back to npm without that
+ * commit would be wrong for a git source and right only if the registry copy
+ * genuinely exists, so the default is chosen to be truthful at every moment.
+ */
+function marketSource() {
+  const requested = (process.env.MARKET_SOURCE ?? 'git').trim()
+  if (requested === 'npm') return { type: 'npm' }
+  if (requested !== 'git') {
+    console.error(`MARKET_SOURCE must be "npm" or "git", got ${JSON.stringify(requested)}`)
+    process.exit(1)
+  }
+  const commit = (process.env.MARKET_COMMIT ?? '').trim()
+  if (!/^[0-9a-f]{40}$/u.test(commit)) {
+    console.error('MARKET_SOURCE=git requires MARKET_COMMIT to be the lowercase 40-hex commit SHA.')
+    console.error('')
+    console.error('  MARKET_COMMIT=$(git rev-parse HEAD) node scripts/generate-market-index.mjs .')
+    console.error('')
+    console.error('Or set MARKET_SOURCE=npm once the package is published to the registry.')
+    process.exit(1)
+  }
+  return { type: 'git', url: repositoryUrl(), commit }
+}
+
 const index = {
   format: 1,
   title: {
@@ -97,7 +134,13 @@ const index = {
         {
           version: pkg.version,
           publishTimestamp,
-          source: { type: 'npm' },
+          // The `source` decides what Discover actually runs. `npm` resolves to
+          // `pnpm add <name>@<version>`, which 404s until the package is really
+          // published; `git` resolves to a commit-pinned URL that works as soon
+          // as the commit is pushed. Defaulting to `git` keeps the published
+          // index truthful at every moment, and `MARKET_SOURCE=npm` switches it
+          // once the registry copy exists.
+          source: marketSource(),
           engines: { dsh: pkg.engines?.dsh },
         },
       ],

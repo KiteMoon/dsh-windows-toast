@@ -62,7 +62,13 @@ check('plugin repository', parsedPlugin.repository?.url === rawPlugin.repository
 check('plugin metadata category', parsedPlugin.metadata?.category === rawPlugin.metadata.category, String(parsedPlugin.metadata?.category))
 check('plugin keywords preserved', JSON.stringify(parsedPlugin.metadata?.keywords) === JSON.stringify(rawPlugin.metadata.keywords), JSON.stringify(parsedPlugin.metadata?.keywords))
 check('plugin labels preserved', JSON.stringify(parsedPlugin.metadata?.labels) === JSON.stringify(rawPlugin.metadata.labels), JSON.stringify(parsedPlugin.metadata?.labels))
-check('version source is npm', parsedVersion.source.type === 'npm', JSON.stringify(parsedVersion.source))
+check('version source survived', JSON.stringify(parsedVersion.source) === JSON.stringify(rawVersion.source), JSON.stringify(parsedVersion.source))
+if (rawVersion.source.type === 'npm') {
+  check('npm source has no stray git fields', parsedVersion.source.url === undefined && parsedVersion.source.commit === undefined)
+} else {
+  check('git source is commit-pinned', /^[0-9a-f]{40}$/u.test(parsedVersion.source.commit ?? ''), String(parsedVersion.source.commit))
+  check('git source url is https', /^https:/u.test(parsedVersion.source.url ?? ''), String(parsedVersion.source.url))
+}
 check('version engines.dsh', parsedVersion.engines.dsh === rawVersion.engines.dsh, String(parsedVersion.engines.dsh))
 check('publishTimestamp is integer seconds', Number.isInteger(parsedVersion.publishTimestamp) && parsedVersion.publishTimestamp > 1_600_000_000, String(parsedVersion.publishTimestamp))
 

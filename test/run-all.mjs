@@ -9,6 +9,8 @@
  *                    source. That file lives inside app.asar in the Desktop
  *                    install, so it cannot be found automatically; without it
  *                    the check is reported as skipped rather than passed.
+ *   --market <path>  Include the plugin-market index check against the shipped
+ *                    validator, @deepseek-ai/dsh-plugin-market-index.
  *   --no-e2e         Skip the end-to-end suite. It really registers a protocol
  *                    handler and shows real toasts, so it is the only suite that
  *                    touches the machine's registry and Action Center.
@@ -25,8 +27,12 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 
 const args = process.argv.slice(2)
-const themeIndex = args.indexOf('--theme')
-const themePath = themeIndex >= 0 ? args[themeIndex + 1] : undefined
+const option = (name) => {
+  const index = args.indexOf(name)
+  return index >= 0 ? args[index + 1] : undefined
+}
+const themePath = option('--theme')
+const marketValidator = option('--market')
 const skipE2e = args.includes('--no-e2e')
 
 // `process.execPath` is already absolute, but quoting it keeps a path with
@@ -51,6 +57,12 @@ if (themePath !== undefined && existsSync(themePath)) {
   runs.push(['tokens', [join(HERE, 'tokens.test.cjs'), join(HERE, '..', 'lib', 'client.js'), themePath]])
 } else {
   console.log('[tokens] SKIPPED (pass --theme <path to dsh-client-ui-theme/lib/client.js>)')
+}
+
+if (marketValidator !== undefined && existsSync(marketValidator)) {
+  runs.push(['market', [join(HERE, '..', 'scripts', 'verify-market-index.mjs'), join(HERE, '..'), marketValidator]])
+} else {
+  console.log('[market] SKIPPED (pass --market <path to dsh-plugin-market-index/lib/index.js>)')
 }
 
 const failed = []

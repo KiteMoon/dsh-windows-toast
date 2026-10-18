@@ -76,7 +76,12 @@ Add the index URL in **Settings → Plugins → Discover**:
 https://raw.githubusercontent.com/KiteMoon/dsh-windows-toast/main/market.json
 ```
 
-Then search for “toast” and install from there.
+Then search for "toast" and install from there. The index pins an exact commit,
+so it resolves whether or not the npm package exists.
+
+> **Not yet on the npm registry.** The published `market.json` therefore points
+> at GitHub rather than npm, and `add dsh-windows-toast` by bare name will 404
+> until the first `npm publish`. Prefer the git or market route above for now.
 
 Restart DSH after installing. The bundle can activate through HMR, but the
 protocol handler is registered at startup, so a restart is what makes the buttons
@@ -192,7 +197,19 @@ node test/run-all.mjs                      # compat + host + client (+ e2e on Wi
 node test/run-all.mjs --no-e2e             # skip the suite that touches the registry
 node test/e2e.test.mjs                     # real toast, real click
 node test/run-all.mjs --theme <path>       # also check theme tokens
+node test/run-all.mjs --market <path>      # also check the market index
 ```
+
+`market.json` is generated, not hand-edited:
+
+```powershell
+$env:MARKET_COMMIT = git rev-parse HEAD    # git source needs the exact commit
+node scripts/generate-market-index.mjs .
+```
+
+The generator refuses to emit a git source without a real commit, rather than
+falling back to something that would not resolve. Once the package is on the
+registry, `MARKET_SOURCE=npm` switches the index to the registry copy.
 
 | Suite | What it proves |
 |---|---|
