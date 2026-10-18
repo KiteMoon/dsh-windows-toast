@@ -65,12 +65,12 @@
       },
       "versions": [
         {
-          "version": "1.0.0",
+          "version": "1.1.0",
           "publishTimestamp": 1761000000,
           "source": {
             "type": "git",
             "url": "https://github.com/KiteMoon/dsh-windows-toast",
-            "commit": "7e24b56b8bacaf35ad4b6c0a1bf54963fb458165"
+            "commit": "bc410dc4baca2f1dc4d90b291330e74f85f162f7"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.2"
