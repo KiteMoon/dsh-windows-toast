@@ -66,7 +66,15 @@ function check(label, condition, detail) {
 function makeContext() {
   const listeners = new Map()
   const effects = []
-  return {
+  const routes = new Map()
+  // The reveal route requires `webServer` and `connection`; this suite is about
+  // the real sidecar, so the fence is stubbed as permissive and no HTTP server
+  // is started. A rejected request is covered by the host suite.
+  const available = {
+    webServer: { register: (route) => { routes.set(route.path, route); return () => routes.delete(route.path) } },
+    connection: { requestRejection: () => undefined },
+  }
+  const ctx = {
     logger: { info: () => {}, warn: (...a) => console.log('  [plugin warn]', ...a), error: console.log },
     on(name, handler, options) {
       const list = listeners.get(name) ?? []
@@ -76,10 +84,20 @@ function makeContext() {
       return () => {}
     },
     effect(fn) { const d = fn(); effects.push(d); return () => {} },
-    get() { return undefined },
+    get(name) { return available[name] },
+    inject(names, callback) {
+      const wanted = typeof names === 'string' ? [names] : names
+      if (wanted.some((name) => available[name] === undefined)) return () => {}
+      const child = { ...ctx, ...Object.fromEntries(wanted.map((name) => [name, available[name]])) }
+      const d = callback(child)
+      if (typeof d === 'function') effects.push(d)
+      return () => {}
+    },
+    routes,
     listeners,
     effects,
   }
+  return ctx
 }
 
 async function waterfall(ctx, name, request, terminal) {

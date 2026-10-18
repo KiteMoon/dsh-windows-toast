@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-toast",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Windows toast notifications for DeepSeek Harness review events, with approve/reject on approval toasts and a per-event dismiss time.",
   "type": "module",
   "icon": "./icon.svg",
@@ -40,6 +40,7 @@
     "test:compat": "node test/compat.test.mjs",
     "test:host": "node test/host.test.mjs",
     "test:client": "node test/client.test.cjs",
+    "test:reveal": "node test/reveal-http.test.mjs",
     "test:e2e": "node test/e2e.test.mjs",
     "market": "node scripts/generate-market-index.mjs ."
   },

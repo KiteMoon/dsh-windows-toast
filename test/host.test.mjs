@@ -116,9 +116,21 @@ function disposeAll() {
   }
 }
 
-function makeContext() {
+function makeContext({ services = {} } = {}) {
   const listeners = new Map()
   const effects = []
+  /** Routes the plugin registered on the fake web server, by path. */
+  const routes = new Map()
+
+  const server = {
+    register(route) {
+      routes.set(route.path, route)
+      return () => routes.delete(route.path)
+    },
+  }
+
+  const available = { webServer: server, connection: { requestRejection: () => undefined }, ...services }
+
   const ctx = {
     logger: { info: () => {}, warn: () => {}, error: () => {} },
     on(name, handler, options) {
@@ -134,7 +146,21 @@ function makeContext() {
       effects.push(disposer)
       return () => { if (typeof disposer === 'function') disposer() }
     },
-    get() { return undefined },
+    get(name) { return available[name] },
+    /**
+     * Mirror Cordis: run the callback with a context carrying the named
+     * services, or never run it when one is unavailable.
+     */
+    inject(names, callback) {
+      const wanted = typeof names === 'string' ? [names] : names
+      if (wanted.some((name) => available[name] === undefined)) return () => {}
+      const child = { ...ctx, ...Object.fromEntries(wanted.map((name) => [name, available[name]])) }
+      const disposer = callback(child)
+      if (typeof disposer === 'function') effects.push(disposer)
+      return () => { if (typeof disposer === 'function') disposer() }
+    },
+    routes,
+    server,
     listeners,
     effects,
     /** Fire a non-waterfall event at every listener. */
@@ -368,16 +394,155 @@ if (scenario === 'all' || scenario === 'approval') {
   check('waterfall untouched', outcome6 === 'unavailable', String(outcome6))
 }
 
+// ------------------------------------------------------- session reveal / context
+
+if (scenario === 'all' || scenario === 'reveal') {
+  console.log('\n[reveal] a click on a completion toast asks the UI to open its session')
+  records.length = 0
+  stagedXml.length = 0
+  disposeAll()
+  const ctx = makeContext()
+  mod.apply(ctx, baseConfig())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  const session = { id: 'sess-42', title: '重构支付模块' }
+  ctx.emit('session/event', session, { type: 'turn/end', seq: 7, data: { reason: { kind: 'completed' } } })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  check('completion toast names the session subject', stagedXml.at(-1)?.includes('重构支付模块') === true, String(stagedXml.at(-1)))
+  check('button says 打开会话', stagedXml.at(-1)?.includes('打开会话') === true)
+  // The body click must also reveal the session, so the toast is not a dead end
+  // for a kind whose action row is the only other way in.
+  check('toast body click reveals the session', /<toast[^>]+launch="dsh-windows-toast:focus:[0-9a-f]{8,}"/u.test(stagedXml.at(-1) ?? ''), String(stagedXml.at(-1)))
+
+  const route = ctx.routes.get('/dsh-windows-toast/pending-navigation')
+  check('navigation route registered', route !== undefined)
+
+  /** Read the route the way the browser half does. */
+  const poll = async () => {
+    let body
+    const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v }, end(text) { body = text } }
+    await route.handler({ method: 'GET', headers: {} }, res)
+    return { status: res.statusCode, body: body === undefined ? undefined : JSON.parse(body) }
+  }
+
+  check('nothing pending before any click', (await poll()).body.sessionIds.length === 0)
+
+  // Simulate the WScript handler delivering the click URI, exactly as the button
+  // encodes it. The key is read back out of the staged XML.
+  const key = decisionKey('focus')
+  check('toast xml carried a focus key', typeof key === 'string' && /^[0-9a-f]{8,}$/u.test(key), String(key))
+  mkdirSync(HARNESS_SPOOL, { recursive: true })
+  writeFileSync(join(HARNESS_SPOOL, '11-12.uri'), `dsh-windows-toast:focus:${key}`, 'utf8')
+  await new Promise((resolve) => setTimeout(resolve, 700))
+
+  check('click raised the window', records.some((r) => r.includes('-Action Focus')), records.join(' | '))
+  const taken = await poll()
+  check('click published the session id', taken.body.sessionIds.includes('sess-42') === true, JSON.stringify(taken.body))
+  const second = await poll()
+  check('reading the route is destructive', second.body.sessionIds.length === 0, JSON.stringify(second.body))
+
+  console.log('\n[reveal] an approval toast carries the session and the tool call')
+  records.length = 0
+  stagedXml.length = 0
+  disposeAll()
+  const ctx2 = makeContext()
+  mod.apply(ctx2, baseConfig())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  ctx2.on('approval/request', () => new Promise(() => {}))
+
+  const agent = { id: 'sess-99', session: { id: 'sess-99', title: '部署网关' } }
+  const callId = 'call_00_ZZZZ|fc_call_00_ZZZZ'
+  // The tool call is published before the tool runs, so the approval can find it.
+  ctx2.emit('session/event', { id: 'sess-99' }, {
+    type: 'tool/call',
+    seq: 3,
+    data: { callId, name: 'pwsh', arguments: JSON.stringify({ command: 'wsl -l -v', description: 'List WSL distros' }) },
+  })
+  const request = { agent, toolName: 'pwsh', callId, reason: 'needs full access', signal: new AbortController().signal }
+  const pending = waterfall(ctx2, 'approval/request', request)
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  const xml = stagedXml.at(-1) ?? ''
+  check('approval toast names the session', xml.includes('会话：部署网关'), xml)
+  check('approval toast names the tool', xml.includes('pwsh'), xml)
+  check('approval toast summarizes the call', xml.includes('List WSL distros'), xml)
+  check('approval toast keeps the reason', xml.includes('needs full access'), xml)
+  check('multi-line body became separate <text> lines', (xml.match(/<text>/gu) ?? []).length >= 4, String((xml.match(/<text>/gu) ?? []).length))
+  check('approval toast body click reaches the session', /<toast[^>]+launch="dsh-windows-toast:focus:[0-9a-f]{8,}"/u.test(xml), xml)
+
+  // Answering from the toast must still work with the richer body.
+  const approveKey = decisionKey('approve')
+  mkdirSync(HARNESS_SPOOL, { recursive: true })
+  writeFileSync(join(HARNESS_SPOOL, '13-14.uri'), `dsh-windows-toast:approve:${approveKey}`, 'utf8')
+  await new Promise((resolve) => setTimeout(resolve, 700))
+  check('approval still settles from the toast', (await pending) === 'allowed-once')
+
+  console.log('\n[reveal] a tool call survives a malformed argument payload')
+  records.length = 0
+  stagedXml.length = 0
+  disposeAll()
+  const ctx3 = makeContext()
+  mod.apply(ctx3, baseConfig())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  ctx3.on('approval/request', () => new Promise(() => {}))
+  ctx3.emit('session/event', { id: 's' }, { type: 'tool/call', seq: 1, data: { callId: 'bad-1', name: 'pwsh', arguments: 'not json at all' } })
+  const req3 = { agent: { id: 'sess-1' }, toolName: 'pwsh', callId: 'bad-1', signal: new AbortController().signal }
+  void waterfall(ctx3, 'approval/request', req3)
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  check('raw text used when arguments are not JSON', (stagedXml.at(-1) ?? '').includes('not json at all'), String(stagedXml.at(-1)))
+  check('toast still shown', records.some((r) => r.includes('-Action Show')))
+
+  console.log('\n[reveal] the route does not exist without the connection fence')
+  records.length = 0
+  disposeAll()
+  // `connection` is required by inject, not read optionally: a route that reveals
+  // which session the user is viewing must not answer anyone who asks, so a
+  // composition that cannot vouch for a caller must not publish it at all.
+  const ctx4 = makeContext({ services: { connection: undefined } })
+  mod.apply(ctx4, baseConfig())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  check('no reveal route without a connection service', ctx4.routes.has('/dsh-windows-toast/pending-navigation') === false)
+  ctx4.emit('session/event', { id: 'sess-y' }, { type: 'turn/end', seq: 1, data: { reason: { kind: 'completed' } } })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  check('notifications still work without a connection service', records.some((r) => r.includes('-Action Show')))
+
+  console.log('\n[reveal] the route honours an upstream rejection')
+  records.length = 0
+  disposeAll()
+  const ctx5 = makeContext({ services: { connection: { requestRejection: () => 401 } } })
+  mod.apply(ctx5, baseConfig())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  let status5 = 0
+  await ctx5.routes.get('/dsh-windows-toast/pending-navigation').handler(
+    { method: 'GET', headers: {} },
+    { statusCode: 0, headers: {}, setHeader() {}, end() { status5 = this.statusCode } },
+  )
+  check('a rejected request is not served', status5 === 401, String(status5))
+
+  console.log('\n[reveal] no webServer means no route and no crash')
+  records.length = 0
+  disposeAll()
+  const ctx6 = makeContext({ services: { webServer: undefined } })
+  mod.apply(ctx6, baseConfig())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  check('plugin loaded without a web server', ctx6.routes.size === 0)
+  ctx6.emit('session/event', { id: 'sess-x' }, { type: 'turn/end', seq: 1, data: { reason: { kind: 'completed' } } })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  check('notifications still work without a web server', records.some((r) => r.includes('-Action Show')))
+}
+
 // --------------------------------------------------------------- questions
 
 if (scenario === 'all' || scenario === 'question') {
   console.log('\n[question] a question request raises a toast and still continues the chain')
   records.length = 0
+  stagedXml.length = 0
   disposeAll()
   const ctx = makeContext()
   mod.apply(ctx, baseConfig())
   await new Promise((resolve) => setTimeout(resolve, 50))
-  const request = { callId: 'q-1', questions: [{ header: 'Choose a target', question: 'Which?' }] }
+  const request = { callId: 'q-1', agent: { id: 'sess-q', session: { id: 'sess-q', title: '整理日志' } }, questions: [{ header: 'Choose a target', question: 'Which?' }] }
   // A downstream answerer proves the plugin delegated rather than consuming the
   // event: the question toast must never take the place of the real UI.
   let delegatedTo
@@ -385,6 +550,7 @@ if (scenario === 'all' || scenario === 'question') {
   const outcome = await waterfall(ctx, 'user-questions/request', request)
   await new Promise((resolve) => setTimeout(resolve, 50))
   check('question toast shown', records.some((r) => r.includes('-Action Show')), records.join(' | '))
+  check('question toast names the session', (stagedXml.at(-1) ?? '').includes('整理日志'), String(stagedXml.at(-1)))
   check('downstream listener received the request', delegatedTo === 'terminal', String(delegatedTo))
   check('downstream answer returned unchanged', outcome === 'answered', String(outcome))
 }

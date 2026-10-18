@@ -64,14 +64,17 @@ The plugin observes three DSH events and derives four notification kinds.
 
 | Notification | Source | Buttons |
 |---|---|---|
-| Task completed | `turn/end` with `reason.kind === 'completed'` | 打开 DSH |
-| Task failed | `turn/end` with `reason.kind` of `error`, `aborted`, or `interrupted` | 打开 DSH |
-| Question | `user-questions/request` | 打开 DSH |
+| Task completed | `turn/end` with `reason.kind === 'completed'` | 打开会话 |
+| Task failed | `turn/end` with `reason.kind` of `error`, `aborted`, or `interrupted` | 打开会话 |
+| Question | `user-questions/request` | 打开会话 |
 | Approval | `approval/request` | **同意 / 拒绝** |
 
 `turn/end` is a committed session event, so completion and failure are durable
-facts rather than inferred state. Notification identity is `sessionId:seq`, which
-makes each turn's toast distinct and withdrawals unambiguous.
+facts rather than inferred state. Every notification gets its own fresh opaque
+token as its identity, which makes each turn's toast distinct and withdrawals
+unambiguous. Clicking any notification — the body, or the 打开会话 button — opens
+the session it came from; see
+[Opening the session a notification came from](#opening-the-session-a-notification-came-from).
 
 Subagent sessions are tracked through `subagent/start` and `subagent/end` so their
 turns can be excluded — a subagent finishes every few seconds, and announcing each
@@ -144,6 +147,101 @@ screen and the user can still answer it, so the plugin keeps the toast as the
 decision source — bounded by a deadline (the configured `timeoutSeconds`, or ten
 minutes) so an ignored toast cannot hang a turn forever. When the deadline passes
 it returns `unavailable`, preserving the fail-closed default.
+
+## Opening the session a notification came from
+
+Clicking a notification opens the **session that produced it**, not merely the DSH
+window. This is not a deep link, because DSH has none, and the reason is worth
+recording.
+
+### There is no session URL
+
+Session selection is browser-local state, persisted to `localStorage` under
+`dsh.sessions.current`. The Web frontend has **no router at all** — no
+`location.hash`, no `history.pushState`, no query parameter, no pathname route.
+The shipped `dsh-host-frontend-static` documentation states it directly: *"the
+current client enters through the root or configured index path and has no History
+API pathname routes."*
+
+The desktop shell does register a `dsh://` protocol, but the handler matches one
+URL and ignores everything else:
+
+```js
+if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === "1") app.setAsDefaultProtocolClient("dsh");
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  if (url === "dsh://open" || url === "dsh://open/") focusPrimaryWindow();
+});
+```
+
+That is focus-only, and `open-url` is a macOS event besides. On Windows the
+registration makes the shell launch the executable with `"%1"` as an argument, and
+the single-instance handler drops argv entirely — `application.on("second-instance",
+focusOwner)` where `focusOwner` takes no parameters. So `dsh://session/<id>` would
+launch a second process, lose the single-instance lock, and do nothing beyond what
+`SetForegroundWindow` already did.
+
+### The mechanism that does exist
+
+Session navigation belongs to exactly one API, the client-side Cordis service
+`uiWorkspace`:
+
+```js
+ctx.uiWorkspace.openSession(sessionId)   // replaces the main view, clears any panel
+```
+
+Shipped plugins call it this way (`ui-schedule`, `ui-chat`, `ui-workflow-run`), and
+`uiSession` is a **read-only projection** with no select method — navigation is
+`uiWorkspace` alone. But it is browser code, and a toast click arrives in the Host
+process. Something has to carry the request across.
+
+### The bridge
+
+The plugin owns both halves, so it supplies the missing leg itself:
+
+```
+   click (Host side)                         browser
+  ┌──────────────────────┐              ┌──────────────────────┐
+  │ handleDecision()     │              │ poll (1.5s + onfocus) │
+  │  verb === 'focus'    │              │                      │
+  │  ↓                   │              │  ↓                   │
+  │ requestNavigation()  │              │ uiWorkspace          │
+  │  ↓                   │   GET        │   .openSession(id)   │
+  │ pendingNavigation[] ─┼──────────────▶                      │
+  │  (TTL 120s, cap 8)   │  destructive │                      │
+  └──────────────────────┘              └──────────────────────┘
+```
+
+A three-way split makes this safe:
+
+- **The queue is Host-side, keyed by an opaque token.** The protocol URI carries
+  only the key — never a session id — because that URI reaches a registry value and
+  a handler command line. `toastTargets` maps key to session inside the process.
+- **Reading is destructive.** A request reveals the session once, not on every
+  poll. Entries also expire (120 s) and the queue is bounded, so a click cannot
+  yank the view long after the fact.
+- **The route is fenced, or absent.** It requires the `connection` service and
+  calls `requestRejection(req)` exactly as the shipped open-in-app routes do. The
+  service is a hard dependency of the route rather than an optional read: a route
+  that reveals which session the user is viewing must not answer anyone who asks,
+  so a composition that cannot vouch for a caller does not publish it at all.
+
+The poll runs `unref()`ed on an interval and again on window focus. Focus is the
+common case, since the click raises the window first — checking on focus makes the
+reveal feel immediate instead of waiting out the interval.
+
+### Saying what an approval is about
+
+An `approval/request` carries no tool arguments — only the tool name, a reason,
+and the call id. The arguments live on the `tool/call` event, which the agent loop
+appends *before* it runs the tool, so by the time an approval races the toast the
+matching event has already been published. The plugin records those calls in a
+bounded map keyed by call id and looks the request's call id up in it.
+
+The summary reads the first present of `description`, `command`, `file_path`,
+`path`, `pattern`, `query`, `url` — ordered by how directly each describes the
+action, not by tool — and falls back to the raw text if `arguments` is not JSON. A
+malformed payload costs the summary line, never the notification.
 
 ## The decision channel
 

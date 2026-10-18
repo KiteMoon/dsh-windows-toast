@@ -5,6 +5,42 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-18
+
+### Added
+
+- **Clicking a notification opens the session that produced it**, instead of only
+  raising the DSH window. The toast body and the 打开会话 button both work.
+- **Approval toasts say what they are about.** Each one names the session subject,
+  the tool, and a one-line summary of the call, taken from the tool's own
+  `description`/`command` arguments.
+- Question toasts name the session they came from.
+- `test/reveal-http.test.mjs` — the reveal route exercised on a real HTTP server
+  with a real `fetch`, which is the only way to prove the handler is compatible
+  with Node's `ServerResponse`.
+
+### Changed
+
+- The 打开 DSH button is now 打开会话, and the toast body is clickable.
+
+### Fixed
+
+- **Turn notifications put a real session id into a protocol URI.** The key was
+  `${sessionId}:${event.seq}`, and that string reaches a registry value and the
+  handler's command line — exactly what the opaque-key rule exists to prevent.
+  Every kind now mints a fresh `randomUUID()` token, and the session is kept
+  Host-side. Found by the new reveal tests, not by inspection.
+
+### Notes
+
+DSH has no session deep link to use. Session selection is browser-local state
+(`localStorage`, key `dsh.sessions.current`), the Web frontend has no router, and
+the desktop's `dsh://` protocol handles only `dsh://open` — which focuses the
+window, and on Windows drops argv entirely. The one API that selects a session is
+the client service `uiWorkspace.openSession(id)`, so this plugin bridges the click
+from the Host to the browser over a small fenced route it owns. See
+[docs/ARCHITECTURE.md](https://github.com/KiteMoon/dsh-windows-toast/blob/main/docs/ARCHITECTURE.md#opening-the-session-a-notification-came-from).
+
 ## [1.0.0] - 2026-10-18
 
 First public release.
@@ -43,4 +79,5 @@ one is a trap a similar plugin would hit:
   list a comma separates arguments, so `"...{0}..." -f $a, $b` bound only the
   first value; the line is now assembled by concatenation.
 
+[1.1.0]: https://github.com/KiteMoon/dsh-windows-toast/releases/tag/v1.1.0
 [1.0.0]: https://github.com/KiteMoon/dsh-windows-toast/releases/tag/v1.0.0

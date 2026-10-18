@@ -87,6 +87,34 @@ The toast **tag** is a SHA-1 of the event key rather than the key itself, becaus
 Windows requires a tag of at most 64 characters with no NUL. Hashing makes any
 input legal. The tag is what a later withdrawal targets.
 
+The **key** is a fresh `randomUUID()` hex token for every notification, of every
+kind. An earlier version used `${sessionId}:${event.seq}` for turn events, which
+put a real session identifier into a protocol URI that reaches a registry value and
+a handler command line — exactly what the opaque-key rule exists to prevent. The
+session is kept Host-side in `toastTargets` instead.
+
+### Revealing a session
+
+`session/event` for `tool/call` records the call's arguments in a bounded map
+(`toolCalls`, 200 entries, oldest evicted) because an `approval/request` carries no
+arguments of its own. `describeToolCall()` summarizes them from the first present
+of `description`, `command`, `file_path`, `path`, `pattern`, `query`, `url`, with
+the raw text as the fallback when `arguments` is not JSON.
+
+A click reaches `handleDecision()` with verb `focus`; it raises the window and
+calls `requestNavigation(sessionId)`, which appends to a bounded, expiring queue.
+`GET /dsh-windows-toast/pending-navigation` drains that queue as JSON.
+
+The route is registered under `ctx.inject(['webServer', 'connection'], …)`. Both
+are hard requirements: `webServer` because there is no route without a server, and
+`connection` because `requestRejection(req)` is the fence the shipped open-in-app
+routes use. Making `connection` optional would have meant a route that answers
+unauthenticated callers when the service is missing, so a composition without it
+publishes no route at all.
+
+`takeNavigation()` is destructive and filters by age, so a click reveals a session
+once and cannot yank the view long after the fact.
+
 ### Sidecar invocation
 
 `runSidecar()` spawns PowerShell, captures stdout and stderr, and parses exactly
@@ -269,6 +297,7 @@ declared explicitly.
 | `test/compat.test.mjs` | `engines.dsh` placement and range, using a real `semver` |
 | `test/host.test.mjs` | Host half against a fake Cordis context, sidecar stubbed |
 | `test/client.test.cjs` | Settings page deep-rendered in three states |
+| `test/reveal-http.test.mjs` | The reveal route on a real HTTP server, fetched for real |
 | `test/e2e.test.mjs` | Real sidecar, real toast, real `ShellExecute` activation |
 | `test/tokens.test.cjs` | Every theme token used is defined by the shipped theme |
 
@@ -277,6 +306,12 @@ importing it, so no toast is shown and every call is observable. It reads the
 decision key out of the staged XML rather than predicting it — the plugin
 deliberately never puts a caller-supplied id in a protocol URI, so a test cannot
 know the key in advance.
+
+The reveal suite exists because the host suite drives the route handler with a stub
+response object. That proves the logic but not that the handler is compatible with
+Node's `ServerResponse`: status codes, headers, and body all have to survive a real
+round trip. It mounts the plugin's actual route on an actual server and fetches it
+the way the browser half does.
 
 The e2e suite reads the key the same way, from the staged XML. An earlier version
 read it from the Windows Action Center, which is populated asynchronously and

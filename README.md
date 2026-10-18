@@ -24,6 +24,11 @@ window forward. Each event type has its own dismiss time.
   buttons settle the request. Whichever side answers first wins: if you click the
   toast, the browser panel closes itself; if you click the browser panel, the
   toast is withdrawn so no stale button is left behind.
+- **Click through to the conversation.** Clicking a notification — its body or its
+  打开会话 button — opens the session that produced it, not just the DSH window.
+- **Approvals say what they are about.** Each approval toast names the session
+  subject, the tool, and a one-line summary of the call it is asking about, taken
+  from the tool's own `description`/`command` arguments.
 - **Four event types, independently configurable.** Task completed, task failed,
   question / more information, and approval request — each with its own on/off,
   button toggle, and dismiss time.
@@ -216,6 +221,7 @@ registry, `MARKET_SOURCE=npm` switches the index to the registry copy.
 | `compat` | `engines.dsh` is declared where DSH actually reads it, and the range admits the current runtime while still refusing older ones. |
 | `host` | The config fold, turn outcomes, and the approval race in both directions — including a real pipe-bearing `callId`. |
 | `client` | The settings page renders in all three states (ready, read-only, unavailable). |
+| `reveal` | The session-reveal route answers a real HTTP request, over a real server. |
 | `e2e` | The real sidecar registers its protocol, shows a real toast, and a real `ShellExecute` activation settles a real approval — both verbs. |
 | `tokens` | Every `--dsw-alias-*` variable used exists in the shipped theme. |
 

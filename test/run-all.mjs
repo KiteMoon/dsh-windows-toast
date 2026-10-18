@@ -43,6 +43,7 @@ const runs = [
   ['compat', [join(HERE, 'compat.test.mjs')]],
   ['host', [join(HERE, 'host.test.mjs')]],
   ['client', [join(HERE, 'client.test.cjs')]],
+  ['reveal', [join(HERE, 'reveal-http.test.mjs')]],
 ]
 
 if (skipE2e) {
